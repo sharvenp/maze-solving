@@ -4,9 +4,8 @@ import random as r
 from PIL import Image, ImageDraw
 import pygame as pg
 import time as t
-import threading
 
-from algorithm import RecursiveBackTracker
+from algorithm import RecursiveBackTracker, NoAlgorithm
 
 class MazeGenerator:
 
@@ -77,6 +76,10 @@ class MazeSolver:
                     c = self.WALL_COLOR
                 elif val == 0:
                     c = self.PATH_COLOR
+                elif val == 2:
+                    c = self.THINK_COLOR
+                elif val == 3:
+                    c = self.SOLVE_COLOR
                 pg.draw.rect(screen, c, (col * scale, row * scale, scale, scale))
 
         pg.draw.rect(screen, self.START_COLOR, (self.start[0] * scale, self.start[1] * scale, scale, scale))
@@ -92,7 +95,7 @@ class MazeSolver:
         self.maze = self.maze_generator.get_new_maze()
         self.draw_maze(screen, scale)
 
-        rbt = RecursiveBackTracker("Recursive Back Tracker", self.maze)
+        algorithm = NoAlgorithm(self.maze)
 
         while True:
 
@@ -103,8 +106,6 @@ class MazeSolver:
             keys = pg.key.get_pressed()
             if keys[pg.K_ESCAPE] or keys[pg.K_SLASH]:
                 return
-
-            solving = False
 
             if keys: # Change start and end position
                 mx, my = self.convert_real_pos_to_grid(pg.mouse.get_pos(), scale)
@@ -122,13 +123,9 @@ class MazeSolver:
                 self.maze = self.maze_generator.get_new_maze()
                 self.draw_maze(screen, scale)
 
-                
-            # solving = True
-            # solving_thread = threading.Thread(target = rbt.solve, args = (start, end))
-
-            while solving:
-                print(rbt.i)
-
+            if keys[pg.K_1]: # Recursive Back Tracking Solver
+                algorithm = RecursiveBackTracker(self.maze)
+                algorithm.solve(screen, scale, self.start, self.end)
 
             t.sleep(1/frame_rate)
             pg.display.update()
