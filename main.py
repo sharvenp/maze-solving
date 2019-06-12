@@ -1,7 +1,6 @@
 import numpy as np
 import math as m
 import random as r
-from PIL import Image, ImageDraw
 import pygame as pg
 import time as t
 
@@ -13,15 +12,17 @@ class MazeGenerator:
         self.width = width
         self.height = height
 
+    def get_blank_maze(self):
+        maze = np.zeros((self.height, self.width))
+        maze = np.pad(maze, 1, 'constant', constant_values=1)
+        return maze
+
     def get_new_maze(self):        
 
         maze = np.ones((self.height, self.width))
         maze[0][0] = 0
         self._step(maze, 0, 0)
-        maze = np.pad(maze, [(1, (self.height % 2)), (1, (self.width % 2))], 'constant', constant_values=1)
-        img = Image.fromarray(np.uint8((np.ones(maze.shape) - maze)*255) , 'L')
-        img.save('resources/maze.png', 'PNG')
-
+        maze = np.pad(maze, [(1, self.width % 2), (1, self.height % 2)], 'constant', constant_values=1)
         return maze
 
     def _step(self, maze, row, col):
@@ -29,13 +30,13 @@ class MazeGenerator:
         while True:
             directions = []
 
-            if 0 <= col + 2 <= self.width - 1 and maze[row][col + 2] == 1:  # Right
+            if 0 < col + 2 <= self.width - 1 and maze[row][col + 2] == 1:  # Right
                 directions.append((0, 2))
-            if 0 <= col - 2 <= self.width - 1 and maze[row][col - 2] == 1:  # Left
+            if 0 < col - 2 <= self.width - 1 and maze[row][col - 2] == 1:  # Left
                 directions.append((0, -2))
-            if 0 <= row - 2 <= self.height - 1 and maze[row - 2][col] == 1: # Up
+            if 0 < row - 2 <= self.height - 1 and maze[row - 2][col] == 1: # Up
                 directions.append((-2, 0))
-            if 0 <= row + 2 <= self.height - 1 and maze[row + 2][col] == 1: # Down
+            if 0 < row + 2 <= self.height - 1 and maze[row + 2][col] == 1: # Down
                 directions.append((2, 0))
             
             if directions:
@@ -47,12 +48,14 @@ class MazeGenerator:
             else:
                 break
 
+
 class MazeSolver:
 
     def __init__(self, width, height):
-        self.width, self.height = width, height
-        self.maze_generator = MazeGenerator(width, height)
 
+        self.width = width 
+        self.height = height
+        
         # RGB Colors
         self.WALL_COLOR = (80, 80, 80)
         self.PATH_COLOR = (255, 255, 255)
@@ -66,9 +69,6 @@ class MazeSolver:
 
     def draw_maze(self, screen, scale):
 
-        self.start = (1,1)
-        self.end = (self.maze.shape[1] - 2, self.maze.shape[0] - 2)
-
         for row in range(self.maze.shape[0]):
             for col in range(self.maze.shape[1]):
                 val = self.maze[row][col]
@@ -76,23 +76,28 @@ class MazeSolver:
                     c = self.WALL_COLOR
                 elif val == 0:
                     c = self.PATH_COLOR
-                elif val == 2:
-                    c = self.THINK_COLOR
-                elif val == 3:
-                    c = self.SOLVE_COLOR
                 pg.draw.rect(screen, c, (col * scale, row * scale, scale, scale))
 
         pg.draw.rect(screen, self.START_COLOR, (self.start[0] * scale, self.start[1] * scale, scale, scale))
         pg.draw.rect(screen, self.END_COLOR, (self.end[0] * scale, self.end[1] * scale, scale, scale))
 
-    def run(self, scale, frame_rate):
+    def run(self, scale, generate_maze=True):
         
         pg.init()        
         
-        screen = pg.display.set_mode(((self.width + 2) * scale, (self.height + 2) * scale))    
-        pg.display.set_caption('Maze Solving Algorithms')
+        screen = pg.display.set_mode(((self.width + 2) * scale, 
+                                      (self.height + 2) * scale))    
 
-        self.maze = self.maze_generator.get_new_maze()
+        pg.display.set_caption('Maze Solving Algorithms')
+        self.maze_generator = MazeGenerator(self.width, self.height)
+
+        if generate_maze:
+            self.maze = self.maze_generator.get_new_maze()
+        else:
+            self.maze = self.maze_generator.get_blank_maze()
+        
+        self.start = (1,1)
+        self.end = (self.maze.shape[1] - 2, self.maze.shape[0] - 2)
         self.draw_maze(screen, scale)
 
         algorithm = NoAlgorithm(self.maze)
@@ -106,6 +111,14 @@ class MazeSolver:
             keys = pg.key.get_pressed()
             if keys[pg.K_ESCAPE] or keys[pg.K_SLASH]:
                 return
+
+            if pg.mouse.get_pressed() != (0, 0, 0) and not generate_maze:
+                mx, my = self.convert_real_pos_to_grid(pg.mouse.get_pos(), scale)
+                if pg.mouse.get_pressed()[0]: # Left click
+                    self.maze[my][mx] = 1
+                elif pg.mouse.get_pressed()[2]: # Right click
+                    self.maze[my][mx] = 0
+                self.draw_maze(screen, scale)
 
             if keys: # Change start and end position
                 mx, my = self.convert_real_pos_to_grid(pg.mouse.get_pos(), scale)
@@ -121,18 +134,20 @@ class MazeSolver:
 
             if keys[pg.K_m]: # Generate new maze
                 self.maze = self.maze_generator.get_new_maze()
+                self.start = (1,1)
+                self.end = (self.maze.shape[1] - 2, self.maze.shape[0] - 2)
                 self.draw_maze(screen, scale)
 
             if keys[pg.K_1]: # Recursive Back Tracking Solver
-                algorithm = RecursiveBackTracker(self.maze)
+                self.draw_maze(screen, scale)
+                algorithm = RecursiveBackTracker(np.copy(self.maze))
                 algorithm.solve(screen, scale, self.start, self.end)
 
-            t.sleep(1/frame_rate)
             pg.display.update()
 
 def main():
-    ms = MazeSolver(51, 51)
-    ms.run(10, 60)
+    ms = MazeSolver(50, 50)
+    ms.run(10, generate_maze=True)
 
 if __name__ == "__main__":
     main()

@@ -25,12 +25,11 @@ class RecursiveBackTracker(MazeSolvingAlgorithm):
     def __init__(self, maze):
 
         MazeSolvingAlgorithm.__init__(self, maze)
-        self.SOLVE_COLOR = (255, 0, 255)
+        self.SOLVE_COLOR = (252, 137, 55)
         self.THINK_COLOR = (0, 0, 255)
 
     def solve(self, screen, scale, start, end):
 
-        print("Starting Recursive Backtracking Maze Solver")
         self.solving = True
         self._solve_step(start[1], start[0], end, screen, scale)
         self.solving = False
@@ -41,6 +40,7 @@ class RecursiveBackTracker(MazeSolvingAlgorithm):
             
             if not self.solving:
                 pg.draw.rect(screen, self.SOLVE_COLOR, (col * scale, row * scale, scale, scale))
+                pg.display.update()
                 break
 
             directions = []
@@ -67,6 +67,7 @@ class RecursiveBackTracker(MazeSolvingAlgorithm):
                 nr, nc = row + dr, col + dc
                 self.maze[nr][nc] = 2
                 pg.draw.rect(screen, self.THINK_COLOR, (nc * scale, nr * scale, scale, scale))
+                pg.display.update()
                 self._solve_step(nr, nc, end, screen, scale)
             else:
                 break
